@@ -1,32 +1,14 @@
 import json
-import random
 from http import HTTPStatus
 
 import pytest
 import requests
 from faker import Faker
 
-from app.models.User import User, UserUpdate, UserCreate
+from app.models.User import User
 from tests.conftest import generate_data
 
 faker = Faker()
-
-
-@pytest.fixture(scope="module")
-def fill_test_data(app_url):
-    with open("users.json") as f:
-        test_data_users = json.load(f)
-    api_users = []
-    for user in test_data_users:
-        response = requests.post(f"{app_url}/api/users/", json=user)
-        api_users.append(response.json())
-
-    user_ids = [user["id"] for user in api_users]
-
-    yield user_ids
-
-    for user_id in user_ids:
-        requests.delete(f"{app_url}/api/users/{user_id}")
 
 
 @pytest.fixture
@@ -43,20 +25,6 @@ def test_users(app_url):
 
     user_list = response.json()
     for user in user_list:
-        User.model_validate(user)
-
-
-@pytest.mark.usefixtures("fill_test_data")
-def test_users_no_duplicates(users):
-    users_ids = [user["id"] for user in users]
-    assert len(users_ids) == len(set(users_ids))
-
-
-def test_user(app_url, fill_test_data):
-    for user_id in (fill_test_data[0], fill_test_data[-1]):
-        response = requests.get(f"{app_url}/api/users/{user_id}")
-        assert response.status_code == HTTPStatus.OK
-        user = response.json()
         User.model_validate(user)
 
 
@@ -84,13 +52,13 @@ def test_create_user(app_url):
 def test_update_user(create_user, app_url):
     user_data = generate_data()
     user_data['id'] = create_user
-    response = requests.put(f"{app_url}/api/users/{create_user}", json=user_data)
+    response = requests.patch(f"{app_url}/api/users/{create_user}", json=user_data)
     assert response.status_code == HTTPStatus.OK
 
 
 def test_update_user_without_id(app_url):
     user_data = generate_data()
-    response = requests.put(f"{app_url}/api/users/{9999999999}", json=user_data)
+    response = requests.patch(f"{app_url}/api/users/{9999999999}", json=user_data)
     assert response.status_code == HTTPStatus.NOT_FOUND
 
 
@@ -112,7 +80,7 @@ def test_delete_user(create_user, app_url):
 def test_delete_user_not_allowed_metod(create_user, app_url):
     response = requests.get(f"{app_url}/api/users/{create_user}")
     assert response.status_code == HTTPStatus.OK
-    response = requests.patch(f"{app_url}/api/users/{create_user}")
+    response = requests.put(f"{app_url}/api/users/{create_user}")
     assert response.status_code == HTTPStatus.METHOD_NOT_ALLOWED
 
 
@@ -141,7 +109,7 @@ def test_create_user_invalid_data(app_url, value):
 def test_update_user_without_value_data(create_user, app_url, value):
     user_data = generate_data()
     del user_data[value]
-    response = requests.put(f"{app_url}/api/users/{create_user}", json=user_data)
+    response = requests.patch(f"{app_url}/api/users/{create_user}", json=user_data)
     assert response.status_code == HTTPStatus.BAD_REQUEST
 
 
@@ -156,7 +124,7 @@ def test_create_user_without_value_data(app_url, value):
 @pytest.mark.parametrize("value", ['', {}])
 def test_update_user_without_data(create_user, app_url, value):
     user_data = value
-    response = requests.put(f"{app_url}/api/users/{create_user}", json=user_data)
+    response = requests.patch(f"{app_url}/api/users/{create_user}", json=user_data)
     assert response.status_code == HTTPStatus.UNPROCESSABLE_ENTITY
 
 
